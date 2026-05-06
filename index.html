@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karingle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #121213;
+      --tile-border: #3a3a3c;
+      --tile-correct: #538d4e;
+      --tile-present: #b59f3b;
+      --tile-absent: #3a3a3c;
+      --text: #ffffff;
+      --key-bg: #818384;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    header {
+      width: 100%;
+      max-width: 500px;
+      border-bottom: 1px solid var(--tile-border);
+      padding: 12px 0;
+      text-align: center;
+    }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 4px;
+    }
+
+    header p {
+      font-size: 0.7rem;
+      color: #818384;
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+
+    #toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 100;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+    }
+
+    #board {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 20px 0;
+      width: 340px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    .tile {
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid var(--tile-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    .tile[data-letter] {
+      border-color: #565758;
+      animation: pop 0.1s ease;
+    }
+
+    @keyframes pop {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.12);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .tile.flip {
+      animation: flip 0.5s ease forwards;
+    }
+
+    @keyframes flip {
+      0% {
+        transform: rotateX(0deg);
+      }
+
+      49% {
+        transform: rotateX(-90deg);
+        background: var(--bg);
+        border-color: var(--tile-border);
+      }
+
+      50% {
+        transform: rotateX(-90deg);
+      }
+
+      100% {
+        transform: rotateX(0deg);
+      }
+    }
+
+    .tile.correct {
+      background: var(--tile-correct);
+      border-color: var(--tile-correct);
+    }
+
+    .tile.present {
+      background: var(--tile-present);
+      border-color: var(--tile-present);
+    }
+
+    .tile.absent {
+      background: var(--tile-absent);
+      border-color: var(--tile-absent);
+    }
+
+    .row.shake {
+      animation: shake 0.5s ease;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      10%,
+      50%,
+      90% {
+        transform: translateX(-4px);
+      }
+
+      30%,
+      70% {
+        transform: translateX(4px);
+      }
+    }
+
+    #keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 20px;
+    }
+
+    .key-row {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .key {
+      background: var(--key-bg);
+      color: var(--text);
+      border: none;
+      border-radius: 4px;
+      width: 43px;
+      height: 58px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      font-family: inherit;
+      transition: background 0.2s;
+      user-select: none;
+    }
+
+    .key.wide {
+      width: 65px;
+      font-size: 0.75rem;
+    }
+
+    .key.correct {
+      background: var(--tile-correct);
+    }
+
+    .key.present {
+      background: var(--tile-present);
+    }
+
+    .key.absent {
+      background: var(--tile-absent);
+    }
+
+    #end-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 200;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #end-screen.show {
+      display: flex;
+    }
+
+    #end-screen h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 6px;
+      margin-bottom: 8px;
+    }
+
+    #end-screen p {
+      font-size: 1rem;
+      color: #818384;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+    .answer-reveal {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 5rem;
+      color: var(--tile-correct);
+      letter-spacing: 12px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-size: 0.75rem;
+      color: #565758;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    #play-again {
+      margin-top: 28px;
+      background: var(--tile-correct);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 14px 32px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 2px;
+      font-family: inherit;
+      transition: filter 0.15s;
+    }
+
+    #play-again:hover {
+      filter: brightness(1.2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>KARINA</h1>
+    <p>the wordle game</p>
+  </header>
+
+  <div id="toast"></div>
+  <div id="board"></div>
+  <div id="keyboard">
+    <div class="key-row" id="krow1"></div>
+    <div class="key-row" id="krow2"></div>
+    <div class="key-row" id="krow3"></div>
+  </div>
+
+  <div id="end-screen">
+    <h2 id="end-title"></h2>
+    <p id="end-subtitle"></p>
+    <div class="answer-reveal">KARINA</div>
+    <div class="tagline">It was always going to be Karina.</div>
+    <button id="play-again" onclick="resetGame()">PLAY AGAIN</button>
+  </div>
+
+  <script>
+    const ANSWER = 'KARINA';
+    const MAX_ROWS = 6;
+    const WORD_LEN = 6;
+    const KEY_ROWS = [
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+      ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '⌫']
+    ];
+
+    let currentRow = 0;
+    let currentCol = 0;
+    let currentGuess = [];
+    let gameOver = false;
+    let keyStates = {};
+
+    // Build board
+    const boardEl = document.getElementById('board');
+    for (let r = 0; r < MAX_ROWS; r++) {
+      const row = document.createElement('div');
+      row.classList.add('row');
+      row.id = `row-${r}`;
+      for (let c = 0; c < WORD_LEN; c++) {
+        const tile = document.createElement('div');
+        tile.classList.add('tile');
+        tile.id = `tile-${r}-${c}`;
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+
+    // Build keyboard
+    KEY_ROWS.forEach((keys, i) => {
+      const rowEl = document.getElementById(`krow${i + 1}`);
+      keys.forEach(k => {
+        const btn = document.createElement('button');
+        btn.classList.add('key');
+        if (k === 'ENTER' || k === '⌫') btn.classList.add('wide');
+        btn.textContent = k;
+        btn.dataset.key = k;
+        btn.addEventListener('click', () => handleKey(k));
+        rowEl.appendChild(btn);
+      });
+    });
+
+    // Physical keyboard
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter') handleKey('ENTER');
+      else if (e.key === 'Backspace') handleKey('⌫');
+      else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+    });
+
+    function handleKey(key) {
+      if (gameOver) return;
+      if (key === '⌫') deleteLetter();
+      else if (key === 'ENTER') submitGuess();
+      else if (/^[A-Z]$/.test(key) && currentCol < WORD_LEN) addLetter(key);
+    }
+
+    function addLetter(letter) {
+      const tile = document.getElementById(`tile-${currentRow}-${currentCol}`);
+      tile.textContent = letter;
+      tile.dataset.letter = letter;
+      currentGuess.push(letter);
+      currentCol++;
+    }
+
+    function deleteLetter() {
+      if (currentCol <= 0) return;
+      currentCol--;
+      currentGuess.pop();
+      const tile = document.getElementById(`tile-${currentRow}-${currentCol}`);
+      tile.textContent = '';
+      delete tile.dataset.letter;
+    }
+
+    async function submitGuess() {
+      if (currentCol < WORD_LEN) {
+        showToast('Not enough letters');
+        shakeRow(currentRow);
+        return;
+      }
+
+      const guess = currentGuess.join('');
+
+      const valid = await validateWord(guess);
+      if (!valid) {
+        showToast('Word does not exist');
+        shakeRow(currentRow);
+        return;
+      }
+
+      const results = evaluateGuess(guess);
+      const row = currentRow;
+
+      revealRow(row, results, guess, () => {
+        if (results.every(r => r === 'correct')) {
+          gameOver = true;
+          setTimeout(() => showEndScreen(true), 300);
+        } else if (row >= MAX_ROWS - 1) {
+          gameOver = true;
+          setTimeout(() => showEndScreen(false), 300);
+        }
+      });
+
+      currentRow++;
+      currentCol = 0;
+      currentGuess = [];
+    }
+
+    async function validateWord(word) {
+      if (word === ANSWER) return true; // KARINA is a proper noun, won't be in dictionary
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+        return res.ok;
+      } catch {
+        return true; // if API fails, let it through
+      }
+    }
+
+    function evaluateGuess(guess) {
+      const result = Array(WORD_LEN).fill('absent');
+      const answer = ANSWER.split('');
+      const g = guess.split('');
+
+      // Pass 1: greens
+      for (let i = 0; i < WORD_LEN; i++) {
+        if (g[i] === answer[i]) {
+          result[i] = 'correct';
+          answer[i] = null;
+          g[i] = null;
+        }
+      }
+
+      // Pass 2: yellows
+      for (let i = 0; i < WORD_LEN; i++) {
+        if (g[i] === null) continue;
+        const idx = answer.indexOf(g[i]);
+        if (idx !== -1) {
+          result[i] = 'present';
+          answer[idx] = null;
+        }
+      }
+
+      return result;
+    }
+
+    function revealRow(rowIdx, results, guess, callback) {
+      const FLIP_MS = 500;
+      const DELAY = 300;
+
+      for (let c = 0; c < WORD_LEN; c++) {
+        const tile = document.getElementById(`tile-${rowIdx}-${c}`);
+        setTimeout(() => {
+          tile.classList.add('flip');
+          setTimeout(() => {
+            tile.classList.add(results[c]);
+            updateKeyState(guess[c], results[c]);
+            updateKeyboard();
+          }, FLIP_MS / 2);
+        }, c * DELAY);
+      }
+
+      setTimeout(callback, (WORD_LEN - 1) * DELAY + FLIP_MS);
+    }
+
+    function updateKeyState(letter, result) {
+      const prev = keyStates[letter];
+      if (prev === 'correct') return;
+      if (result === 'correct') keyStates[letter] = 'correct';
+      else if (result === 'present' && prev !== 'correct') keyStates[letter] = 'present';
+      else if (!prev) keyStates[letter] = 'absent';
+    }
+
+    function updateKeyboard() {
+      document.querySelectorAll('.key').forEach(btn => {
+        const k = btn.dataset.key;
+        const state = keyStates[k];
+        if (state) {
+          const isWide = btn.classList.contains('wide');
+          btn.className = `key${isWide ? ' wide' : ''} ${state}`;
+        }
+      });
+    }
+
+    function shakeRow(rowIdx) {
+      const row = document.getElementById(`row-${rowIdx}`);
+      row.classList.add('shake');
+      row.addEventListener('animationend', () => row.classList.remove('shake'), { once: true });
+    }
+
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+
+    function showEndScreen(won) {
+      document.getElementById('end-title').textContent = won ? 'You got her!' : 'Game over.';
+      document.getElementById('end-subtitle').textContent = won
+        ? "But let's be honest — you always knew."
+        : "It's Karina. It's always Karina.";
+      document.getElementById('end-screen').classList.add('show');
+    }
+
+    function resetGame() {
+      currentRow = 0; currentCol = 0; currentGuess = []; gameOver = false; keyStates = {};
+      for (let r = 0; r < MAX_ROWS; r++) {
+        for (let c = 0; c < WORD_LEN; c++) {
+          const tile = document.getElementById(`tile-${r}-${c}`);
+          tile.textContent = '';
+          tile.className = 'tile';
+          delete tile.dataset.letter;
+        }
+      }
+      document.querySelectorAll('.key').forEach(btn => {
+        const isWide = btn.classList.contains('wide');
+        btn.className = `key${isWide ? ' wide' : ''}`;
+      });
+      document.getElementById('end-screen').classList.remove('show');
+    }
+  </script>
+</body>
+
+</html>
