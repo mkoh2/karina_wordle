@@ -288,8 +288,15 @@
       text-transform: uppercase;
     }
 
-    #play-again {
+    .end-buttons {
+      display: flex;
+      gap: 12px;
       margin-top: 28px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #play-again, #share-btn {
       background: var(--tile-correct);
       color: white;
       border: none;
@@ -303,7 +310,11 @@
       transition: filter 0.15s;
     }
 
-    #play-again:hover {
+    #share-btn {
+      background: var(--tile-present);
+    }
+
+    #play-again:hover, #share-btn:hover {
       filter: brightness(1.2);
     }
   </style>
@@ -329,7 +340,10 @@
     <p id="end-subtitle"></p>
     <div class="answer-reveal">KARINA</div>
     <div class="tagline">It was always going to be Karina.</div>
-    <button id="play-again" onclick="resetGame()">PLAY AGAIN</button>
+    <div class="end-buttons">
+      <button id="share-btn" onclick="shareResults()">SHARE</button>
+      <button id="play-again" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
   </div>
 
   <script>
@@ -347,6 +361,7 @@
     let currentGuess = [];
     let gameOver = false;
     let keyStates = {};
+    let guessResults = [];
 
     // Build board
     const boardEl = document.getElementById('board');
@@ -426,6 +441,7 @@
       }
 
       const results = evaluateGuess(guess);
+      guessResults.push(results);
       const row = currentRow;
 
       revealRow(row, results, guess, () => {
@@ -444,12 +460,14 @@
     }
 
     async function validateWord(word) {
-      if (word === ANSWER) return true; // KARINA is a proper noun, won't be in dictionary
+      // KARINA is a proper noun so it won't appear in a standard dictionary API
+      if (word === ANSWER) return true;
       try {
         const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
         return res.ok;
       } catch {
-        return true; // if API fails, let it through
+        // Allow the guess through if the API is unreachable so the game stays playable offline
+        return true;
       }
     }
 
@@ -458,7 +476,7 @@
       const answer = ANSWER.split('');
       const g = guess.split('');
 
-      // Pass 1: greens
+      // Pass 1: mark exact matches (green) and null them out so they aren't reused in pass 2
       for (let i = 0; i < WORD_LEN; i++) {
         if (g[i] === answer[i]) {
           result[i] = 'correct';
@@ -467,7 +485,7 @@
         }
       }
 
-      // Pass 2: yellows
+      // Pass 2: mark letters that exist elsewhere in the answer (yellow), consuming each occurrence once
       for (let i = 0; i < WORD_LEN; i++) {
         if (g[i] === null) continue;
         const idx = answer.indexOf(g[i]);
@@ -482,12 +500,13 @@
 
     function revealRow(rowIdx, results, guess, callback) {
       const FLIP_MS = 500;
-      const DELAY = 300;
+      const DELAY = 300; // stagger each tile flip so they cascade left-to-right
 
       for (let c = 0; c < WORD_LEN; c++) {
         const tile = document.getElementById(`tile-${rowIdx}-${c}`);
         setTimeout(() => {
           tile.classList.add('flip');
+          // Apply the result color at the midpoint of the flip so it appears on the "back" face
           setTimeout(() => {
             tile.classList.add(results[c]);
             updateKeyState(guess[c], results[c]);
@@ -501,6 +520,7 @@
 
     function updateKeyState(letter, result) {
       const prev = keyStates[letter];
+      // Key colors only ever upgrade: absent → present → correct, never downgrade
       if (prev === 'correct') return;
       if (result === 'correct') keyStates[letter] = 'correct';
       else if (result === 'present' && prev !== 'correct') keyStates[letter] = 'present';
@@ -541,8 +561,30 @@
       document.getElementById('end-screen').classList.add('show');
     }
 
+    function shareResults() {
+      const emojiMap = { correct: '🟩', present: '🟨', absent: '⬛' };
+      const won = guessResults[guessResults.length - 1].every(r => r === 'correct');
+      const attempts = won ? `${guessResults.length}/6` : 'X/6';
+      const grid = guessResults.map(row => row.map(r => emojiMap[r]).join('')).join('\n');
+      const text = `Karingle ${attempts}\n\n${grid}`;
+
+      // navigator.clipboard requires a secure context; fall back to execCommand for older browsers
+      const copy = () => navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+      copy().catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied!');
+      });
+    }
+
     function resetGame() {
-      currentRow = 0; currentCol = 0; currentGuess = []; gameOver = false; keyStates = {};
+      currentRow = 0; currentCol = 0; currentGuess = []; gameOver = false; keyStates = {}; guessResults = [];
       for (let r = 0; r < MAX_ROWS; r++) {
         for (let c = 0; c < WORD_LEN; c++) {
           const tile = document.getElementById(`tile-${r}-${c}`);
